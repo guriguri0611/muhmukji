@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<title>뭐먹지?</title>
+
+<!-- iOS PWA: 홈 화면에 추가 시 전체화면 앱처럼 -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="뭐먹지?" />
+<meta name="theme-color" content="#FFF7F0" />
+<link rel="apple-touch-icon" href="icon-180.png" />
+<link rel="icon" href="icon-192.png" />
+<link rel="manifest" href="manifest.webmanifest" />
+
+<style>
+  :root{
+    --bg:#FFF7F0; --card:#FFFFFF; --ink:#2B2422; --sub:#9A8F88; --line:#F1E7DE;
+    --primary:#FF6B4A; --primarySoft:#FFE7E0; --yellow:#FFC24B; --yellowSoft:#FFF2D6;
+    --green:#34C759; --shadow:0 8px 24px rgba(255,107,74,0.12);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Segoe UI',sans-serif;
+    background:#EFE7DF; color:var(--ink);
+    display:flex; justify-content:center; align-items:center; min-height:100%;
+  }
+
+  /* ===== 데스크톱: 아이폰 프레임 ===== */
+  #device{
+    width:390px; height:800px; background:#000; border-radius:54px; padding:11px;
+    box-shadow:0 30px 60px rgba(0,0,0,.35); position:relative;
+  }
+  #screen{
+    width:100%; height:100%; background:var(--bg); border-radius:44px;
+    overflow:hidden; position:relative; display:flex; flex-direction:column;
+  }
+  #island{position:absolute; top:12px; left:50%; transform:translateX(-50%);
+    width:110px; height:30px; background:#000; border-radius:999px; z-index:30;}
+  #statusbar{display:flex; justify-content:space-between; align-items:center;
+    padding:16px 26px 6px; font-size:13px; font-weight:700;}
+  #content{flex:1; overflow-y:auto; padding:0 20px 96px; -webkit-overflow-scrolling:touch;}
+
+  /* ===== 실제 폰 / 설치(PWA) / 좁은 화면: 풀스크린 ===== */
+  body.fullscreen{display:block; background:var(--bg);}
+  body.fullscreen #device{width:100%; height:100dvh; background:transparent; border-radius:0; padding:0; box-shadow:none;}
+  body.fullscreen #screen{border-radius:0;}
+  body.fullscreen #island{display:none;}
+  body.fullscreen #statusbar{display:none;}
+  body.fullscreen #content{padding-top:env(safe-area-inset-top, 12px);}
+  body.fullscreen #tabbar{padding-bottom:calc(env(safe-area-inset-bottom, 10px) + 10px);}
+
+  /* ===== 공통 컴포넌트 ===== */
+  h1{font-size:28px; font-weight:900; margin:0; line-height:1.25;}
+  h2{margin:0;}
+  .muted{color:var(--sub);}
+  .row{display:flex; flex-wrap:wrap; gap:8px;}
+  .sectitle{display:flex; align-items:baseline; gap:8px; margin:22px 4px 12px;}
+  .sectitle h3{font-size:16px; font-weight:800; margin:0;}
+  .sectitle span{font-size:12px; color:var(--sub);}
+
+  .chip{padding:9px 14px; border-radius:999px; border:1.5px solid var(--line);
+    background:var(--card); color:var(--ink); font-size:14px; font-weight:500;
+    transition:all .15s ease; cursor:pointer;}
+  .chip.on{border-color:var(--primary); background:var(--primary); color:#fff;
+    font-weight:700; box-shadow:0 4px 12px rgba(255,107,74,.28);}
+
+  .btn{border:none; border-radius:18px; font-weight:800; cursor:pointer;}
+  .btn-primary{background:var(--primary); color:#fff; box-shadow:0 8px 18px rgba(255,107,74,.35);}
+  .btn-soft{background:var(--yellowSoft); color:#A9701B; border:1.5px solid var(--yellow);}
+  .btn-ghost{background:var(--card); color:var(--ink); border:1.5px solid var(--line);}
+
+  .bubble{background:var(--card); border-radius:18px 18px 18px 4px; padding:10px 14px;
+    box-shadow:var(--shadow); font-size:14px; font-weight:600;}
+
+  .card{background:var(--card); border-radius:26px; padding:24px; box-shadow:var(--shadow);
+    border:1px solid var(--line);}
+  .tag{display:inline-block; padding:5px 12px; border-radius:999px; background:var(--primarySoft);
+    color:var(--primary); font-size:12px; font-weight:800;}
+  .simtag{padding:6px 11px; border-radius:999px; background:var(--bg); color:var(--ink);
+    font-size:13px; font-weight:600; border:1px solid var(--line);}
+
+  .setrow{display:flex; align-items:center; gap:12px; background:var(--card);
+    border-radius:18px; padding:15px 16px; border:1px solid var(--line);}
+  .toggle{width:50px; height:30px; border-radius:999px; border:none; padding:3px;
+    background:#E4DAD1; cursor:pointer; display:flex; justify-content:flex-start; transition:background .2s;}
+  .toggle.on{background:var(--green); justify-content:flex-end;}
+  .toggle .knob{width:24px; height:24px; border-radius:50%; background:#fff;
+    box-shadow:0 1px 3px rgba(0,0,0,.2);}
+
+  input.txt{flex:1; padding:13px 14px; border-radius:14px; border:1.5px solid var(--line);
+    font-size:14px; outline:none; background:var(--card); color:var(--ink);}
+  input.txt:focus{border-color:var(--primary);}
+
+  .histcard{display:flex; align-items:center; gap:14px; background:var(--card);
+    border-radius:18px; padding:14px 16px; border:1px solid var(--line);}
+  .histicon{width:42px; height:42px; border-radius:12px; background:var(--primarySoft);
+    display:flex; align-items:center; justify-content:center; font-size:20px;}
+
+  #tabbar{position:absolute; bottom:0; left:0; right:0;
+    background:rgba(255,247,240,.92); backdrop-filter:blur(12px);
+    border-top:1px solid var(--line); display:flex; padding:8px 8px 24px;}
+  .tabbtn{flex:1; background:none; border:none; cursor:pointer; display:flex;
+    flex-direction:column; align-items:center; gap:3px; padding:4px 0;}
+  .tabbtn .ic{font-size:21px; opacity:.5; filter:grayscale(40%);}
+  .tabbtn .lb{font-size:11px; font-weight:600; color:var(--sub);}
+  .tabbtn.on .ic{opacity:1; filter:none;}
+  .tabbtn.on .lb{font-weight:800; color:var(--primary);}
+</style>
+</head>
+<body>
+  <div id="device">
+    <div id="screen">
+      <div id="island"></div>
+      <div id="statusbar"><span>9:41</span><span style="font-size:12px;">● ● ●&nbsp;&nbsp;▮▮▮&nbsp;&nbsp;🔋</span></div>
+      <div id="content"></div>
+      <div id="tabbar"></div>
+    </div>
+  </div>
+
+<script>
+/* =======================================================================
+ * 마스코트 이미지 교체:
+ * 본인 이미지를 index.html 옆에 두고 아래를 "내이미지.png" 로 바꾸면
+ * 모든 마스코트 자리에 그 이미지가 들어갑니다. null = 기본 밥그릇 캐릭터.
+ * ===================================================================== */
+const MASCOT_IMAGE_URL = null;
+
+/* ---------- 메뉴 데이터 ---------- */
+const MENUS = [
+  {name:"김치찌개",category:"한식",mood:["따뜻한","든든한","매운"],type:["외식","집밥","배달"],price:9000,spicy:true,similar:["된장찌개","순두부찌개","부대찌개"]},
+  {name:"된장찌개",category:"한식",mood:["따뜻한","든든한","깔끔한"],type:["외식","집밥"],price:8000,spicy:false,similar:["김치찌개","순두부찌개","청국장"]},
+  {name:"제육볶음",category:"한식",mood:["든든한","매운"],type:["외식","집밥","배달"],price:9000,spicy:true,similar:["불고기","오징어볶음","두루치기"]},
+  {name:"비빔밥",category:"한식",mood:["가벼운","깔끔한","든든한"],type:["외식","집밥"],price:9000,spicy:false,similar:["돌솥비빔밥","산채비빔밥","회덮밥"]},
+  {name:"국밥",category:"한식",mood:["따뜻한","든든한","깔끔한"],type:["외식"],price:9000,spicy:false,similar:["순대국밥","설렁탕","곰탕"]},
+  {name:"불고기",category:"한식",mood:["든든한","따뜻한"],type:["외식","집밥"],price:12000,spicy:false,similar:["제육볶음","갈비","소불고기"]},
+  {name:"냉면",category:"한식",mood:["시원한","가벼운","깔끔한"],type:["외식"],price:10000,spicy:false,similar:["물냉면","비빔냉면","막국수"]},
+  {name:"순두부찌개",category:"한식",mood:["따뜻한","든든한","매운"],type:["외식","집밥","배달"],price:8000,spicy:true,similar:["김치찌개","된장찌개","부대찌개"]},
+  {name:"부대찌개",category:"한식",mood:["따뜻한","든든한","매운"],type:["외식","배달"],price:11000,spicy:true,similar:["김치찌개","순두부찌개","김치전골"]},
+  {name:"삼겹살",category:"한식",mood:["든든한"],type:["외식"],price:15000,spicy:false,similar:["목살","오겹살","갈비"]},
+  {name:"짜장면",category:"중식",mood:["든든한"],type:["배달","외식"],price:7000,spicy:false,similar:["간짜장","짬뽕","볶음밥"]},
+  {name:"짬뽕",category:"중식",mood:["따뜻한","든든한","매운"],type:["배달","외식"],price:8000,spicy:true,similar:["짜장면","우동","마라탕"]},
+  {name:"탕수육",category:"중식",mood:["든든한"],type:["배달","외식"],price:13000,spicy:false,similar:["깐풍기","유린기","크림새우"]},
+  {name:"볶음밥",category:"중식",mood:["든든한","깔끔한"],type:["배달","외식","집밥"],price:7000,spicy:false,similar:["짜장밥","잡채밥","오므라이스"]},
+  {name:"마라탕",category:"중식",mood:["따뜻한","든든한","매운"],type:["외식","배달"],price:12000,spicy:true,similar:["마라샹궈","짬뽕","훠궈"]},
+  {name:"마파두부",category:"중식",mood:["매운","든든한","따뜻한"],type:["집밥","외식"],price:9000,spicy:true,similar:["마라두부","두부조림","제육볶음"]},
+  {name:"유린기",category:"중식",mood:["가벼운","깔끔한"],type:["배달","외식"],price:13000,spicy:false,similar:["깐풍기","탕수육","라조기"]},
+  {name:"깐풍기",category:"중식",mood:["매운","든든한"],type:["배달","외식"],price:14000,spicy:true,similar:["유린기","라조기","탕수육"]},
+  {name:"양장피",category:"중식",mood:["가벼운","깔끔한","시원한"],type:["외식"],price:16000,spicy:false,similar:["냉채","유산슬","팔보채"]},
+  {name:"고추잡채",category:"중식",mood:["매운","든든한"],type:["외식"],price:13000,spicy:true,similar:["부추잡채","꽃빵","마파두부"]},
+  {name:"초밥",category:"일식",mood:["가벼운","깔끔한","시원한"],type:["외식","배달"],price:15000,spicy:false,similar:["회","사케동","마끼"]},
+  {name:"라멘",category:"일식",mood:["따뜻한","든든한"],type:["외식"],price:10000,spicy:false,similar:["우동","츠케멘","탄탄멘"]},
+  {name:"돈카츠",category:"일식",mood:["든든한"],type:["외식","배달"],price:11000,spicy:false,similar:["가츠동","치즈돈카츠","멘치카츠"]},
+  {name:"규동",category:"일식",mood:["든든한","따뜻한"],type:["외식","배달"],price:9000,spicy:false,similar:["가츠동","오야코동","부타동"]},
+  {name:"우동",category:"일식",mood:["따뜻한","가벼운","깔끔한"],type:["외식","집밥","편의점"],price:8000,spicy:false,similar:["소바","라멘","카레우동"]},
+  {name:"소바",category:"일식",mood:["시원한","가벼운","깔끔한"],type:["외식"],price:9000,spicy:false,similar:["우동","냉모밀","자루소바"]},
+  {name:"카레라이스",category:"일식",mood:["든든한","따뜻한"],type:["외식","집밥","편의점"],price:9000,spicy:false,similar:["돈카츠카레","규동","오므라이스"]},
+  {name:"오야코동",category:"일식",mood:["든든한","따뜻한","깔끔한"],type:["외식","배달"],price:9000,spicy:false,similar:["규동","가츠동","텐동"]},
+  {name:"가츠동",category:"일식",mood:["든든한"],type:["외식","배달"],price:10000,spicy:false,similar:["돈카츠","규동","오야코동"]},
+  {name:"사케동",category:"일식",mood:["가벼운","시원한","깔끔한"],type:["외식","배달"],price:14000,spicy:false,similar:["초밥","회덮밥","텐동"]},
+  {name:"파스타",category:"양식",mood:["든든한","깔끔한"],type:["외식","배달","집밥"],price:13000,spicy:false,similar:["리조또","그라탕","라자냐"]},
+  {name:"피자",category:"양식",mood:["든든한"],type:["배달","외식"],price:15000,spicy:false,similar:["파스타","까르보나라","포카치아"]},
+  {name:"햄버거",category:"양식",mood:["든든한"],type:["배달","외식","편의점"],price:8000,spicy:false,similar:["수제버거","샌드위치","핫도그"]},
+  {name:"스테이크",category:"양식",mood:["든든한"],type:["외식"],price:15000,spicy:false,similar:["립아이","안심스테이크","함박스테이크"]},
+  {name:"리조또",category:"양식",mood:["든든한","따뜻한","깔끔한"],type:["외식","집밥"],price:13000,spicy:false,similar:["파스타","그라탕","필라프"]},
+  {name:"샐러드",category:"양식",mood:["가벼운","시원한","깔끔한"],type:["배달","집밥","편의점"],price:9000,spicy:false,similar:["샌드위치","포케","랩"]},
+  {name:"샌드위치",category:"양식",mood:["가벼운","깔끔한"],type:["편의점","배달","집밥"],price:6000,spicy:false,similar:["샐러드","햄버거","토스트"]},
+  {name:"오믈렛",category:"양식",mood:["가벼운","따뜻한","깔끔한"],type:["집밥","외식"],price:8000,spicy:false,similar:["오므라이스","스크램블","프리타타"]},
+  {name:"그라탕",category:"양식",mood:["든든한","따뜻한"],type:["외식","집밥"],price:12000,spicy:false,similar:["리조또","라자냐","파스타"]},
+  {name:"필라프",category:"양식",mood:["든든한","깔끔한"],type:["외식","집밥"],price:11000,spicy:false,similar:["리조또","볶음밥","파에야"]},
+];
+
+const MOODS=[["든든한","🍚"],["가벼운","🥗"],["매운","🌶️"],["따뜻한","♨️"],["시원한","🧊"],["깔끔한","✨"]];
+const CATS=[["한식","🍚"],["중식","🥡"],["일식","🍣"],["양식","🍝"],["상관없음","🎲"]];
+const TYPES=[["배달","🛵"],["외식","🍽️"],["집밥","🏠"],["편의점","🏪"],["상관없음","🎲"]];
+const BUDGETS=[["8000","8,000원 이하"],["15000","15,000원 이하"],["any","상관없음"]];
+
+/* ---------- 상태 ---------- */
+const S = {
+  tab:"home", mood:null, category:null, type:null, budget:null,
+  result:null, noMatch:false, history:[], dislikeInput:"",
+  settings:{dislikes:[], spicyOk:true, prefCats:[], excludeRecent:true},
+};
+
+/* ---------- 저장소 (가능하면 영구, 아니면 메모리) ---------- */
+function load(){
+  try{ const h=localStorage.getItem("muhmukji:history"); if(h) S.history=JSON.parse(h);}catch(e){}
+  try{ const s=localStorage.getItem("muhmukji:settings"); if(s) S.settings=Object.assign(S.settings,JSON.parse(s));}catch(e){}
+}
+function save(){
+  try{ localStorage.setItem("muhmukji:history",JSON.stringify(S.history));}catch(e){}
+  try{ localStorage.setItem("muhmukji:settings",JSON.stringify(S.settings));}catch(e){}
+}
+
+/* ---------- 마스코트 ---------- */
+function mascot(size, mood){
+  if(MASCOT_IMAGE_URL) return `<img src="${MASCOT_IMAGE_URL}" alt="마스코트" width="${size}" height="${size}" style="object-fit:contain;border-radius:18px;">`;
+  const right = mood==="wink"
+    ? `<path d="M54 56 q5 0 9 0" stroke="#2B2422" stroke-width="3.5" stroke-linecap="round" fill="none"/>`
+    : `<circle cx="59" cy="56" r="4.5" fill="#2B2422"/>`;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" fill="none" aria-hidden="true">
+    <path d="M36 18 q4 -6 0 -12" stroke="#FFC24B" stroke-width="3" stroke-linecap="round" opacity="0.7" fill="none"/>
+    <path d="M50 16 q4 -6 0 -12" stroke="#FF6B4A" stroke-width="3" stroke-linecap="round" opacity="0.7" fill="none"/>
+    <path d="M64 18 q4 -6 0 -12" stroke="#FFC24B" stroke-width="3" stroke-linecap="round" opacity="0.7" fill="none"/>
+    <path d="M28 46 q22 -26 44 0 Z" fill="#FFFDF7" stroke="#2B2422" stroke-width="3" stroke-linejoin="round"/>
+    <circle cx="42" cy="40" r="1.6" fill="#EFE7D8"/><circle cx="52" cy="36" r="1.6" fill="#EFE7D8"/><circle cx="60" cy="42" r="1.6" fill="#EFE7D8"/>
+    <path d="M22 46 h56 a4 4 0 0 1 4 4 q-6 30 -32 30 q-26 0 -32 -30 a4 4 0 0 1 4 -4 Z" fill="#FF6B4A" stroke="#2B2422" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M22 56 q28 8 56 0" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" opacity="0.55" fill="none"/>
+    <circle cx="40" cy="56" r="4.5" fill="#2B2422"/>${right}
+    <circle cx="33" cy="64" r="4" fill="#FFFFFF" opacity="0.35"/><circle cx="66" cy="64" r="4" fill="#FFFFFF" opacity="0.35"/>
+    <path d="M44 66 q5.5 6 11 0" stroke="#2B2422" stroke-width="3" stroke-linecap="round" fill="none"/>
+  </svg>`;
+}
+
+/* ---------- 추천 로직 ---------- */
+function pickMenu(random){
+  let pool = MENUS.slice();
+  if(!random){
+    if(S.mood) pool=pool.filter(m=>m.mood.includes(S.mood));
+    if(S.category && S.category!=="상관없음") pool=pool.filter(m=>m.category===S.category);
+    if(S.type && S.type!=="상관없음") pool=pool.filter(m=>m.type.includes(S.type));
+    if(S.budget==="8000") pool=pool.filter(m=>m.price<=8000);
+    else if(S.budget==="15000") pool=pool.filter(m=>m.price<=15000);
+    if((!S.category||S.category==="상관없음") && S.settings.prefCats.length){
+      const pref=pool.filter(m=>S.settings.prefCats.includes(m.category));
+      if(pref.length) pool=pref;
+    }
+  }
+  if(!S.settings.spicyOk) pool=pool.filter(m=>!m.spicy);
+  if(S.settings.dislikes.length) pool=pool.filter(m=>!S.settings.dislikes.some(d=>d&&m.name.includes(d)));
+  if(S.settings.excludeRecent && S.history.length){
+    const recent=S.history.slice(0,5).map(h=>h.name);
+    const f=pool.filter(m=>!recent.includes(m.name));
+    if(f.length) pool=f;
+  }
+  if(!pool.length) return null;
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+function buildReason(menu, mood){
+  const base = mood || menu.mood[0];
+  const tail = {"든든한":"오늘 저녁 든든하게 채우기 좋아.","가벼운":"부담 없이 가볍게 먹기 딱 좋아.","매운":"얼큰하게 스트레스 풀기 좋아.","따뜻한":"따뜻하게 속 데우기 좋아.","시원한":"시원하게 입맛 살리기 좋아.","깔끔한":"깔끔하게 마무리하기 좋아."}[base] || "저녁 메뉴로 잘 어울려.";
+  return `${base} 느낌이라 ${tail}`;
+}
+function todayLabel(){ const d=new Date(); return `${d.getMonth()+1}월 ${d.getDate()}일`; }
+
+/* ---------- 액션 (전역) ---------- */
+function setTab(t){ S.tab=t; render(); }
+function toggleSel(key,val){ S[key]=(S[key]===val?null:val); render(); }
+function recommend(random){
+  const m=pickMenu(random);
+  if(!m){ S.noMatch=true; S.result=null; } else { S.result={menu:m, reason:buildReason(m, random?null:S.mood)}; S.noMatch=false; }
+  S.tab="result"; render();
+}
+function saveEaten(){
+  if(!S.result) return;
+  S.history=[{date:todayLabel(),name:S.result.menu.name}, ...S.history].slice(0,50);
+  save();
+  S._flash=true; render();
+  setTimeout(()=>{ S._flash=false; render(); },1500);
+}
+function addDislike(){
+  const v=(S.dislikeInput||"").trim();
+  if(!v||S.settings.dislikes.includes(v)){ S.dislikeInput=""; render(); return; }
+  S.settings.dislikes.push(v); S.dislikeInput=""; save(); render();
+}
+function removeDislike(d){ S.settings.dislikes=S.settings.dislikes.filter(x=>x!==d); save(); render(); }
+function togglePref(c){
+  const i=S.settings.prefCats.indexOf(c);
+  if(i>=0) S.settings.prefCats.splice(i,1); else S.settings.prefCats.push(c);
+  save(); render();
+}
+function toggleSetting(key){ S.settings[key]=!S.settings[key]; save(); render(); }
+
+/* ---------- 화면 렌더 ---------- */
+function chips(list, key){
+  return `<div class="row">`+list.map(([k,e])=>{
+    const label = key==="budget" ? `💸 ${e}` : `${e} ${k}`;
+    const on = S[key]===k ? "on":"";
+    return `<button class="chip ${on}" onclick="toggleSel('${key}','${k}')">${label}</button>`;
+  }).join("")+`</div>`;
+}
+
+function homeScreen(){
+  const cnt=[S.mood,S.category,S.type,S.budget].filter(Boolean).length;
+  return `
+  <div style="display:flex;align-items:center;gap:12px;margin-top:8px;">
+    ${mascot(74)}
+    <div class="bubble" style="color:var(--ink);">오늘 뭐 먹을지 같이 골라보자!</div>
+  </div>
+  <h1 style="margin:20px 4px 2px;">오늘 저녁<br>뭐 먹지? 🍽️</h1>
+  <p class="muted" style="font-size:13px;margin:0 4px;">조건을 골라봐. ${cnt>0?`${cnt}개 선택됨`:"안 골라도 랜덤 추천 가능해!"}</p>
+
+  <div class="sectitle"><h3>기분</h3><span>하나만 골라줘</span></div>${chips(MOODS,"mood")}
+  <div class="sectitle"><h3>음식 카테고리</h3></div>${chips(CATS,"category")}
+  <div class="sectitle"><h3>식사 방식</h3></div>${chips(TYPES,"type")}
+  <div class="sectitle"><h3>예산</h3></div>${chips(BUDGETS,"budget")}
+
+  <div style="display:flex;gap:10px;margin-top:28px;">
+    <button class="btn btn-primary" style="flex:1;padding:16px;font-size:16px;" onclick="recommend(false)">메뉴 추천받기</button>
+    <button class="btn btn-soft" style="padding:16px 18px;font-size:15px;white-space:nowrap;" onclick="recommend(true)">🎲 랜덤</button>
+  </div>`;
+}
+
+function resultScreen(){
+  if(S.noMatch){
+    return `<div style="padding-top:24px;text-align:center;">
+      <div style="margin-top:30px;">${mascot(96,"sleepy")}</div>
+      <h2 style="font-size:19px;font-weight:800;margin-top:16px;">조건에 맞는 메뉴가 없어요</h2>
+      <p class="muted" style="font-size:14px;line-height:1.6;">조건을 조금 줄여볼까요?</p>
+      <button class="btn btn-primary" style="margin-top:18px;padding:14px 24px;font-size:15px;" onclick="setTab('home')">조건 다시 고르기</button>
+    </div>`;
+  }
+  if(!S.result){
+    return `<div style="padding-top:40px;text-align:center;">
+      ${mascot(96)}
+      <h2 style="font-size:18px;font-weight:800;margin-top:16px;">아직 추천받은 메뉴가 없어</h2>
+      <p class="muted" style="font-size:14px;">홈에서 조건 고르고 추천받아줘!</p>
+      <button class="btn btn-primary" style="margin-top:16px;padding:14px 24px;font-size:15px;" onclick="setTab('home')">홈으로 가기</button>
+    </div>`;
+  }
+  const {menu,reason}=S.result;
+  const sims=menu.similar.map(s=>`<span class="simtag">${s}</span>`).join("");
+  const saveLabel = S._flash ? "✓ 저장됨!" : "오늘 먹은 메뉴로 저장";
+  const saveBg = S._flash ? "var(--green)" : "var(--primary)";
+  return `
+  <div style="display:flex;align-items:center;gap:10px;margin:16px 0 14px;">
+    ${mascot(56,"wink")}
+    <div class="bubble" style="border-radius:16px 16px 16px 4px;font-weight:700;">이거 어때? 😋</div>
+  </div>
+  <div class="card">
+    <span class="tag">${menu.category}</span>
+    <h2 style="font-size:32px;font-weight:900;margin:12px 0 4px;">${menu.name}</h2>
+    <p style="font-size:18px;font-weight:800;color:var(--primary);margin:0;">약 ${menu.price.toLocaleString()}원</p>
+    <div style="height:1px;background:var(--line);margin:18px 0;"></div>
+    <p style="font-size:12px;font-weight:800;color:var(--sub);margin:0 0 4px;">추천 이유</p>
+    <p style="font-size:14.5px;line-height:1.55;margin:0;">${reason}</p>
+    <p style="font-size:12px;font-weight:800;color:var(--sub);margin:16px 0 8px;">비슷한 메뉴</p>
+    <div class="row">${sims}</div>
+  </div>
+  <div style="display:flex;gap:10px;margin-top:18px;">
+    <button class="btn btn-ghost" style="flex:1;padding:15px;font-size:15px;" onclick="recommend(false)">🔄 다시 추천</button>
+    <button class="btn" style="flex:1.3;padding:15px;font-size:15px;color:#fff;background:${saveBg};" onclick="saveEaten()">${saveLabel}</button>
+  </div>`;
+}
+
+function historyScreen(){
+  let body;
+  if(!S.history.length){
+    body=`<div style="text-align:center;padding-top:50px;">
+      ${mascot(90,"sleepy")}
+      <p style="font-size:15px;font-weight:700;margin-top:14px;">아직 먹은 메뉴 기록이 없어</p>
+      <p class="muted" style="font-size:13px;">맛있게 먹고 추천 화면에서 저장해줘!</p></div>`;
+  } else {
+    body=`<div style="display:flex;flex-direction:column;gap:10px;">`+S.history.map(h=>`
+      <div class="histcard"><div class="histicon">🍴</div>
+        <div style="flex:1;"><p style="margin:0;font-size:15.5px;font-weight:800;">${h.name}</p>
+        <p class="muted" style="margin:0;font-size:12.5px;">${h.date}</p></div></div>`).join("")+`</div>`;
+  }
+  return `<h1 style="font-size:26px;margin:8px 4px 4px;">먹은 기록 📒</h1>
+    <p class="muted" style="font-size:13px;margin:0 4px 18px;">최근에 먹은 메뉴는 추천에서 빠질 수 있어.</p>${body}`;
+}
+
+function settingsScreen(){
+  const dis = S.settings.dislikes.length
+    ? `<div class="row" style="margin-top:10px;">`+S.settings.dislikes.map(d=>`<span class="tag" style="cursor:pointer;" onclick="removeDislike('${d}')">${d} ✕</span>`).join("")+`</div>` : "";
+  const prefs = ["한식","중식","일식","양식"].map(c=>`<button class="chip ${S.settings.prefCats.includes(c)?'on':''}" onclick="togglePref('${c}')">${c}</button>`).join("");
+  const tog=(key,title,desc)=>`<div class="setrow"><div style="flex:1;">
+      <p style="margin:0;font-size:15px;font-weight:800;">${title}</p>
+      <p class="muted" style="margin:2px 0 0;font-size:12.5px;">${desc}</p></div>
+      <button class="toggle ${S.settings[key]?'on':''}" onclick="toggleSetting('${key}')"><span class="knob"></span></button></div>`;
+  return `<h1 style="font-size:26px;margin:8px 4px 18px;">취향 설정 ⚙️</h1>
+    <div class="sectitle"><h3>싫어하는 음식</h3><span>이 음식이 든 메뉴는 빼줄게</span></div>
+    <div style="display:flex;gap:8px;">
+      <input id="dislike" class="txt" placeholder="예: 오이, 가지" value="${(S.dislikeInput||'').replace(/"/g,'&quot;')}">
+      <button class="btn btn-primary" style="padding:0 18px;font-size:14px;box-shadow:none;" onclick="addDislike()">추가</button>
+    </div>${dis}
+    <div class="sectitle"><h3>선호 카테고리</h3></div><div class="row">${prefs}</div>
+    <p class="muted" style="font-size:12px;margin:8px 4px 0;">카테고리를 '상관없음'으로 추천받을 때 먼저 골라줄게.</p>
+    <div style="margin-top:26px;display:flex;flex-direction:column;gap:12px;">
+      ${tog("spicyOk","매운 음식 가능","끄면 매운 메뉴는 추천에서 빠져요")}
+      ${tog("excludeRecent","최근 먹은 메뉴 제외","최근 먹은 메뉴는 가능하면 다시 추천 안 해요")}
+    </div>`;
+}
+
+function tabbar(){
+  const items=[["home","홈","🏠"],["result","추천","🍽️"],["history","기록","📒"],["settings","설정","⚙️"]];
+  return items.map(([k,l,ic])=>`<button class="tabbtn ${S.tab===k?'on':''}" onclick="setTab('${k}')"><span class="ic">${ic}</span><span class="lb">${l}</span></button>`).join("");
+}
+
+function render(){
+  const content=document.getElementById("content");
+  const prevScroll=content.scrollTop;
+  let html="";
+  if(S.tab==="home") html=homeScreen();
+  else if(S.tab==="result") html=resultScreen();
+  else if(S.tab==="history") html=historyScreen();
+  else html=settingsScreen();
+  content.innerHTML=html;
+  document.getElementById("tabbar").innerHTML=tabbar();
+  // 같은 탭 재렌더 시 스크롤 유지
+  content.scrollTop = prevScroll;
+  // dislike 입력값을 상태에 반영 (포커스 잃지 않도록 재렌더 없이)
+  const di=document.getElementById("dislike");
+  if(di){
+    di.addEventListener("input",e=>{ S.dislikeInput=e.target.value; });
+    di.addEventListener("keydown",e=>{ if(e.key==="Enter") addDislike(); });
+  }
+}
+
+/* 풀스크린/프레임 모드 결정 */
+function applyMode(){
+  const standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  const narrow = window.innerWidth < 500;
+  document.body.classList.toggle("fullscreen", standalone || narrow);
+}
+window.addEventListener("resize", applyMode);
+
+load();
+applyMode();
+render();
+</script>
+</body>
+</html>
